@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GradPortal</title>
+    <style>
+        :root {
+            --bg-color: #1a1a1a;
+            --card-bg: #2d2d2d;
+            --card-hover: #363636;
+            --text-main: #e0e0e0;
+            --text-sub: #999999;
+            --accent-blue: #4a90e2;   /* 授業 */
+            --accent-green: #4caf50;  /* 研究 */
+            --accent-purple: #ab47bc; /* 就活 */
+            --accent-orange: #ff9800; /* タスク */
+            --accent-pink: #ec4899;   /* 生活 */
+            --border-color: #444444;
+            --danger-color: #e57373;
+            --progress-bg: #444444;
+        }
+
+        * { box-sizing: border-box; }
+        body { margin: 0; font-family: 'Helvetica Neue', Arial, sans-serif; background-color: var(--bg-color); color: var(--text-main); display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+
+        /* 导航栏 */
+        header { padding: 15px 40px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); background: #252526; }
+        .logo-area h1 { margin: 0; font-size: 1.4rem; color: #fff; font-weight: normal; }
+        nav { display: flex; gap: 8px; }
+        nav button { background: transparent; border: 1px solid var(--border-color); color: var(--text-sub); padding: 8px 16px; cursor: pointer; border-radius: 6px; font-size: 14px; transition: 0.2s; }
+        nav button:hover, nav button.active { background: var(--card-bg); color: #fff; border-color: #fff; }
+
+        /* 主体区域 */
+        main { flex: 1; padding: 30px 40px; overflow-y: auto; }
+        .page { display: none; animation: fadeIn 0.3s; }
+        .page.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        .grid-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; }
+        .section-title { font-size: 16px; margin-bottom: 15px; font-weight: bold; border-bottom: 1px solid var(--border-color); padding-bottom: 8px; color: #fff; display: flex; justify-content: space-between; align-items: center; }
+        
+        /* 卡片与表单 */
+        .item-card { background: var(--card-bg); padding: 15px; border-radius: 8px; margin-bottom: 12px; border: 1px solid var(--border-color); position: relative; }
+        .input-group { background: var(--card-bg); padding: 15px; border-radius: 8px; margin-bottom: 20px; display: flex; gap: 10px; flex-wrap: wrap; border: 1px solid var(--border-color); align-items: center; }
+        input, select, textarea { background: #1e1e1e; border: 1px solid var(--border-color); color: white; padding: 8px 12px; border-radius: 6px; font-size: 13px; }
+        input:focus, select:focus, textarea:focus { outline: none; border-color: var(--text-sub); }
+        
+        button.primary-btn { background: #e0e0e0; color: #000; border: none; padding: 8px 16px; border-radius: 6px; font-weight: bold; cursor: pointer; }
+        button.primary-btn:hover { background: #fff; }
+        button.ghost-btn { background: transparent; border: 1px solid var(--text-sub); color: var(--text-sub); padding: 4px 10px; border-radius: 4px; font-size: 12px; cursor: pointer; }
+        button.ghost-btn:hover { background: #444; color: #fff; }
+        
+        /* 进度条 & Badge */
+        .progress-container { background: var(--progress-bg); border-radius: 10px; height: 8px; width: 100%; margin-top: 5px; overflow: hidden; }
+        .progress-bar { background: var(--accent-green); height: 100%; transition: width 0.3s; }
+        .badge { border: 1px solid var(--text-sub); padding: 2px 8px; border-radius: 12px; font-size: 11px; }
+
+        /* 日历 */
+        .calendar { border: 1px solid var(--border-color); border-radius: 8px; background: var(--card-bg); overflow: hidden; }
+        .cal-header { padding: 10px; background: #333; font-weight: bold; text-align: center; }
+        .cal-days { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; font-size: 12px; background: #222; padding: 5px 0; color: var(--text-sub); }
+        .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; background: var(--border-color); }
+        .cal-cell { background: var(--card-bg); min-height: 60px; padding: 5px; font-size: 12px; position: relative; cursor: pointer; }
+        .cal-cell:hover { background: var(--card-hover); }
+        .cal-cell.today { outline: 2px solid var(--text-sub); outline-offset: -2px; }
+        .cal-cell.selected { background: #2a3b4c; }
+        .cal-task-dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; margin: 2px; }
+        .dot-course { background: var(--accent-blue); }
+        .dot-research { background: var(--accent-green); }
+        .dot-job { background: var(--accent-purple); }
+        .dot-task { background: var(--accent-orange); }
+        .dot-life { background: var(--accent-pink); }
+
+        /* 12节次专属课表网格 */
+        .timetable { display: grid; grid-template-columns: 50px repeat(6, 1fr); grid-auto-rows: minmax(45px, auto); gap: 1px; background: var(--border-color); border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; font-size: 12px; position: relative; }
+        .tt-header { text-align: center; padding: 4px; background: #222; color: var(--text-sub); font-weight: bold; display: flex; align-items: center; justify-content: center; }
+        .tt-cell { background: var(--card-bg); }
+        .tt-course { background: rgba(74, 144, 226, 0.15); border-left: 4px solid var(--accent-blue); padding: 6px; border-radius: 4px; font-size: 11px; word-break: break-all; overflow: hidden; }
+
+        /* 便利贴 (Sticky Notes) */
+        .sticky-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 15px; margin-top: 15px; }
+        .sticky-note { background: #fdf6e3; color: #333; padding: 12px; border-radius: 2px; box-shadow: 2px 4px 6px rgba(0,0,0,0.2); height: 140px; cursor: pointer; position: relative; display: flex; flex-direction: column; transition: transform 0.2s; }
+        .sticky-note:hover { transform: translateY(-2px); }
+        .sticky-title { font-weight: bold; font-size: 13px; margin-bottom: 5px; border-bottom: 1px solid rgba(0,0,0,0.1); padding-bottom: 4px; }
+        .sticky-content { font-size: 12px; flex: 1; overflow: hidden; white-space: pre-wrap; }
+        .sticky-del { position: absolute; top: 5px; right: 5px; background: none; border: none; color: #999; cursor: pointer; font-size: 12px; }
+        .sticky-del:hover { color: #d32f2f; }
+
+        /* 沉浸式笔记弹窗 */
+        #memo-modal, #tt-settings-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 1000; justify-content: center; align-items: center; }
+        .modal-content { background: #1a1a1a; width: 80%; max-width: 800px; height: 85vh; border-radius: 12px; display: flex; flex-direction: column; border: 1px solid var(--border-color); box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .modal-header { padding: 20px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; }
+        .modal-body { flex: 1; padding: 20px; display: flex; flex-direction: column; overflow-y: auto; }
+        #modal-title-input { background: transparent; border: none; color: white; font-size: 18px; font-weight: bold; width: 100%; outline: none; margin-bottom: 10px; border-bottom: 1px solid #333; padding-bottom: 5px; }
+        #modal-textarea { flex: 1; font-size: 15px; line-height: 1.6; background: transparent; border: none; resize: none; color: #fff; padding: 5px; }
+        #modal-textarea:focus { outline: none; }
+        
+        .settings-row { display: flex; gap: 10px; margin-bottom: 10px; align-items: center; }
+        
+        /* 曜日選択用チェックボックス */
+        .checkbox-group { display: flex; gap: 10px; background: #1e1e1e; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-color); }
+        .checkbox-group label { display: flex; align-items: center; gap: 4px; cursor: pointer; font-size: 13px; }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="logo-area"><h1>GradPortal</h1></div>
+    <nav>
+        <button onclick="switchTab('page-dash', this)" class="active">ダッシュボード</button>
+        <button onclick="switchTab('page-course', this)">授業</button>
+        <button onclick="switchTab('page-research', this)">研究</button>
+        <button onclick="switchTab('page-job', this)">就職活動</button>
+        <button onclick="switchTab('page-tasks', this)">タスク</button>
+        <button onclick="switchTab('page-life', this)">生活</button>
+    </nav>
+</header>
+
+<main>
+    <div id="page-dash" class="page active">
+        <div class="grid-layout">
+            <div>
+                <div class="section-title">カレンダー</div>
+                <div class="calendar" id="calendar-container"></div>
+            </div>
+            <div>
+                <div class="section-title" style="color: var(--accent-blue);">選択した日付の予定 <span id="selected-date-label" style="font-size:12px; font-weight:normal;"></span></div>
+                <div id="selected-date-tasks" style="margin-bottom: 30px;"></div>
+
+                <div class="section-title">直近のタスク一覧</div>
+                <div id="dash-combined-tasks"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="page-course" class="page">
+        <div class="grid-layout">
+            <div>
+                <div class="section-title">授業の追加</div>
+                <div class="input-group" style="flex-direction: column; align-items: stretch;">
+                    <input type="text" id="course-name" placeholder="授業名..." style="margin-bottom:10px;">
+                    
+                    <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:10px;">
+                        <div class="checkbox-group" id="course-days">
+                            <label><input type="checkbox" value="1">月</label>
+                            <label><input type="checkbox" value="2">火</label>
+                            <label><input type="checkbox" value="3">水</label>
+                            <label><input type="checkbox" value="4">木</label>
+                            <label><input type="checkbox" value="5">金</label>
+                            <label><input type="checkbox" value="6">土</label>
+                        </div>
+                        
+                        <div style="display:flex; align-items:center; gap:5px;">
+                            <select id="course-period-start" title="開始時限">
+                                <option value="1">1限</option><option value="2">2限</option><option value="3">3限</option><option value="4">4限</option><option value="5">5限</option><option value="6">6限</option>
+                                <option value="7">7限</option><option value="8">8限</option><option value="9">9限</option><option value="10">10限</option><option value="11">11限</option><option value="12">12限</option>
+                            </select>
+                            <span style="color:var(--text-sub);">~</span>
+                            <select id="course-period-end" title="終了時限">
+                                <option value="1">1限</option><option value="2">2限</option><option value="3">3限</option><option value="4">4限</option><option value="5">5限</option><option value="6">6限</option>
+                                <option value="7">7限</option><option value="8">8限</option><option value="9">9限</option><option value="10">10限</option><option value="11">11限</option><option value="12">12限</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div style="display:flex; gap:10px;">
+                        <input type="text" id="course-teacher" placeholder="教員名/教室など..." style="flex:1">
+                        <button class="primary-btn" onclick="addCourse()">追加</button>
+                    </div>
+                </div>
+                
+                <div class="section-title">授業一覧・課題管理</div>
+                <div id="course-list"></div>
+            </div>
+            <div>
+                <div class="section-title">時間割 <button class="ghost-btn" onclick="openTimetableSettings()">時間設定</button></div>
+                <div class="timetable" id="timetable-grid"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="page-research" class="page">
+        <div class="grid-layout">
+            <div>
+                <div class="section-title">進捗・マイルストーン</div>
+                <div class="item-card" style="margin-bottom: 20px;">
+                    <div style="display:flex; justify-content:space-between; font-weight:bold;">
+                        <span>全体の進捗</span><span id="research-progress-text">0%</span>
+                    </div>
+                    <div class="progress-container"><div class="progress-bar" id="research-progress-bar" style="width:0%"></div></div>
+                </div>
+                <div class="input-group" style="padding:10px;">
+                    <input type="text" id="rs-milestone-text" placeholder="マイルストーン名" style="flex:1">
+                    <input type="date" id="rs-milestone-date">
+                    <button class="primary-btn" onclick="addMilestone()">追加</button>
+                </div>
+                <div id="research-milestone-list"></div>
+            </div>
+            <div>
+                <div class="section-title">研究メモ</div>
+                <div class="item-card">
+                    <div style="display:flex; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:15px; border-bottom:1px solid #444; padding-bottom:15px;">
+                        <label style="font-size: 12px; color: var(--text-sub);">定例ゼミ (時間割に表示):</label>
+                        <select id="research-meeting-day" onchange="saveResearchConfig()">
+                            <option value="1">月曜日</option><option value="2">火曜日</option><option value="3">水曜日</option><option value="4">木曜日</option><option value="5">金曜日</option><option value="6">土曜日</option>
+                        </select>
+                        <select id="research-meeting-start" onchange="saveResearchConfig()">
+                            <option value="1">1限</option><option value="2">2限</option><option value="3">3限</option><option value="4">4限</option><option value="5">5限</option><option value="6">6限</option><option value="7">7限</option><option value="8">8限</option><option value="9">9限</option><option value="10">10限</option><option value="11">11限</option><option value="12">12限</option>
+                        </select>
+                        <span style="color:var(--text-sub);">~</span>
+                        <select id="research-meeting-end" onchange="saveResearchConfig()">
+                            <option value="1">1限</option><option value="2">2限</option><option value="3">3限</option><option value="4">4限</option><option value="5">5限</option><option value="6">6限</option><option value="7">7限</option><option value="8">8限</option><option value="9">9限</option><option value="10">10限</option><option value="11">11限</option><option value="12">12限</option>
+                        </select>
+                    </div>
+                    
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <span style="font-size: 13px;">ノート・アイデア (便利付箋)</span>
+                        <button class="primary-btn" style="padding:4px 10px; font-size:12px;" onclick="createResMemo()">+ 新規ノート</button>
+                    </div>
+                    
+                    <div class="sticky-grid" id="research-memo-grid"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="page-job" class="page">
+        <div class="input-group">
+            <input type="text" id="job-co" placeholder="企業名...">
+            <input type="url" id="job-url" placeholder="マイページURL...">
+            <select id="job-st">
+                <option value="プレエントリー">プレエントリー</option><option value="ES提出">ES提出</option>
+                <option value="筆記試験">筆記試験</option><option value="一次面接">一次面接</option>
+                <option value="二次面接">二次面接</option><option value="最終面接">最終面接</option>
+                <option value="内定">内定</option><option value="不採用">不採用</option>
+            </select>
+            <button class="primary-btn" onclick="addJob()">企業を追加</button>
+        </div>
+        <div class="section-title">選考状況・メモ</div>
+        <div id="job-list" class="grid-layout"></div>
+    </div>
+
+    <div id="page-tasks" class="page">
+        <div class="input-group">
+            <input type="text" id="task-text" placeholder="タスク内容..." style="flex:1">
+            <input type="date" id="task-date">
+            <button class="primary-btn" onclick="addManualTask()">タスク追加</button>
+        </div>
+        <div class="section-title">すべてのタスク</div>
+        <div id="full-task-list"></div>
+    </div>
+
+    <div id="page-life" class="page">
+        <div class="input-group">
+            <input type="text" id="life-title" placeholder="予定 (例: 友達と旅行、飲み会...)" style="flex:1">
+            <div style="display:flex; align-items:center; gap:5px;">
+                <input type="date" id="life-date" title="開始日">
+                <span style="color:var(--text-sub);">~</span>
+                <input type="date" id="life-date-end" title="終了日">
+            </div>
+            <input type="text" id="life-loc" placeholder="場所 (任意)" style="width:120px;">
+            <button class="primary-btn" onclick="addLifeEvent()">予定を追加</button>
+        </div>
+        <div class="section-title">生活・プライベートの予定</div>
+        <div id="life-list" class="grid-layout"></div>
+    </div>
+</main>
+
+<div id="memo-modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <div style="flex:1;">
+                <input type="text" id="modal-title-input" placeholder="タイトルを入力...">
+                <div id="modal-subtitle" style="font-size:12px; color:var(--text-sub);"></div>
+            </div>
+            <button class="primary-btn" style="margin-left:20px;" onclick="saveMemo()">保存して閉じる</button>
+        </div>
+        <div class="modal-body">
+            <textarea id="modal-textarea" placeholder="内容を入力してください..."></textarea>
+        </div>
+    </div>
+</div>
+
+<div id="tt-settings-modal">
+    <div class="modal-content" style="max-width: 400px; height: auto;">
+        <div class="modal-header">
+            <h3 style="margin:0;">時間割の時刻設定</h3>
+            <button class="ghost-btn" onclick="document.getElementById('tt-settings-modal').style.display='none'; renderAll();">閉じる</button>
+        </div>
+        <div class="modal-body" id="tt-settings-body"></div>
+    </div>
+</div>
+
+<script>
+    // --- データ構造 ---
+    const defaultTimes = {
+        1: {s: '08:50', e: '09:40'}, 2: {s: '09:40', e: '10:30'}, 3: {s: '10:45', e: '11:35'},
+        4: {s: '11:35', e: '12:25'}, 5: {s: '13:30', e: '14:20'}, 6: {s: '14:20', e: '15:10'},
+        7: {s: '15:25', e: '16:15'}, 8: {s: '16:15', e: '17:05'}, 9: {s: '17:15', e: '18:05'},
+        10: {s: '18:05', e: '18:55'}, 11: {s: '19:05', e: '19:55'}, 12: {s: '19:55', e: '20:45'}
+    };
+
+    let appData = JSON.parse(localStorage.getItem('grad_portal_v6')) || {
+        courses: [],  // { id, name, days: [], periodStart, periodEnd, teacher, assignments: [] }
+        ttTimes: defaultTimes,
+        research: { meetingDay: 3, meetingPeriodStart: 1, meetingPeriodEnd: 2, milestones: [], memos: [] },
+        jobs: [],    
+        manualTasks: [], 
+        lifeEvents: [], // {id, title, date, dateEnd, loc, text}
+        selectedDate: new Date().toISOString().split('T')[0]
+    };
+
+    // 互換性保護とデータ移行処理 (古いデータのアップデート)
+    if(!appData.ttTimes) appData.ttTimes = defaultTimes;
+    if(!appData.lifeEvents) appData.lifeEvents = [];
+    if(!appData.research.memos) appData.research.memos = [];
+    appData.courses.forEach(c => {
+        if(c.day !== undefined) { c.days = [parseInt(c.day)]; delete c.day; }
+    });
+    if(typeof appData.research.meetingDay === 'string') {
+        const dayMap = {'月曜日':1, '火曜日':2, '水曜日':3, '木曜日':4, '金曜日':5, '土曜日':6};
+        appData.research.meetingDay = dayMap[appData.research.meetingDay] || 3;
+        appData.research.meetingPeriodStart = 1;
+        appData.research.meetingPeriodEnd = 2;
+    }
+    appData.lifeEvents.forEach(e => {
+        if(!e.dateEnd) e.dateEnd = e.date;
+    });
+
+    const genId = () => Math.random().toString(36).substr(2, 9);
+    function saveData() { localStorage.setItem('grad_portal_v6', JSON.stringify(appData)); renderAll(); }
+
+    function switchTab(pageId, btn) {
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        document.getElementById(pageId).classList.add('active');
+        document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+    }
+
+    // --- 期間内のすべての日付文字列を取得する関数 ---
+    function getDatesInRange(startStr, endStr) {
+        const dates = [];
+        let curr = new Date(startStr);
+        const end = new Date(endStr);
+        curr.setHours(12, 0, 0, 0); // タイムゾーンずれ防止
+        end.setHours(12, 0, 0, 0);
+        while(curr <= end) {
+            dates.push(curr.toISOString().split('T')[0]);
+            curr.setDate(curr.getDate() + 1);
+        }
+        return dates;
+    }
+
+    // --- コアタスク集約 ---
+    function getAllTasks() {
+        let tasks = [];
+        appData.manualTasks.forEach(t => tasks.push({...t, type:'タスク', color:'task'}));
+        appData.courses.forEach(c => c.assignments.forEach(a => tasks.push({ id: a.id, text: `[${c.name}] ${a.text}`, date: a.date, type: '授業', color: 'course' })));
+        appData.research.milestones.forEach(m => { if(!m.done && m.date) tasks.push({ id: m.id, text: `[研究] ${m.text}`, date: m.date, type: '研究', color: 'research' }); });
+        appData.jobs.forEach(j => j.memos.forEach(m => { if(m.date) tasks.push({ id: m.id, text: `[${j.co}] ${m.category}`, date: m.date, type: '就活', color: 'job' }); }));
+        
+        // ライフイベントを複数日にまたがるよう展開
+        appData.lifeEvents.forEach(e => {
+            const range = getDatesInRange(e.date, e.dateEnd || e.date);
+            range.forEach(dStr => {
+                tasks.push({ id: e.id, text: `[生活] ${e.title}`, date: dStr, type: '生活', color: 'life' });
+            });
+        });
+        
+        return tasks.sort((a, b) => new Date(a.date) - new Date(b.date));
+    }
+
+    function getDaysDiff(dateStr) {
+        if(!dateStr) return '';
+        const diff = Math.ceil((new Date(dateStr).setHours(0,0,0,0) - new Date().setHours(0,0,0,0)) / 86400000);
+        if(diff < 0) return `<span style="color:var(--text-sub)">(過去)</span>`;
+        if(diff === 0) return `<span style="color:var(--danger-color); font-weight:bold;">(今日!)</span>`;
+        return `(あと${diff}日)`;
+    }
+
+    // --- ビジネスロジック操作 ---
+    // [授業]
+    function addCourse() {
+        const name = document.getElementById('course-name').value;
+        const checkboxes = document.querySelectorAll('#course-days input:checked');
+        const days = Array.from(checkboxes).map(cb => parseInt(cb.value));
+        const pStart = parseInt(document.getElementById('course-period-start').value);
+        const pEnd = parseInt(document.getElementById('course-period-end').value);
+        const teacher = document.getElementById('course-teacher').value;
+        
+        if(!name || days.length === 0 || pStart > pEnd) { alert("入力が正しくないか、曜日が選択されていません"); return; }
+        appData.courses.push({ id: genId(), name, days, periodStart: pStart, periodEnd: pEnd, teacher, assignments: [] });
+        
+        // リセット
+        document.getElementById('course-name').value = '';
+        checkboxes.forEach(cb => cb.checked = false);
+        saveData();
+    }
+    function delCourse(id) { if(confirm('削除しますか？')) { appData.courses = appData.courses.filter(c => c.id !== id); saveData(); } }
+    function addAssignment(cId) {
+        const text = document.getElementById(`hw-text-${cId}`).value;
+        const date = document.getElementById(`hw-date-${cId}`).value;
+        if(text && date) { appData.courses.find(c => c.id === cId).assignments.push({ id: genId(), text, date }); saveData(); }
+    }
+    function delAssignment(cId, aId) { appData.courses.find(c => c.id === cId).assignments = appData.courses.find(c => c.id === cId).assignments.filter(a => a.id !== aId); saveData(); }
+
+    // [研究]
+    function saveResearchConfig() { 
+        appData.research.meetingDay = parseInt(document.getElementById('research-meeting-day').value); 
+        appData.research.meetingPeriodStart = parseInt(document.getElementById('research-meeting-start').value); 
+        appData.research.meetingPeriodEnd = parseInt(document.getElementById('research-meeting-end').value); 
+        saveData(); 
+    }
+    function addMilestone() {
+        const text = document.getElementById('rs-milestone-text').value;
+        const date = document.getElementById('rs-milestone-date').value;
+        if(text) { appData.research.milestones.push({ id: genId(), text, date, done: false }); saveData(); }
+    }
+    function toggleMilestone(id) { const m = appData.research.milestones.find(x => x.id === id); m.done = !m.done; saveData(); }
+    function delMilestone(id) { appData.research.milestones = appData.research.milestones.filter(x => x.id !== id); saveData(); }
+    
+    function createResMemo() {
+        const id = genId();
+        appData.research.memos.push({ id, title: '', text: '' });
+        saveData();
+        openMemo('research_memo', id);
+    }
+    function delResMemo(id) {
+        if(confirm('削除しますか？')) { appData.research.memos = appData.research.memos.filter(m => m.id !== id); saveData(); }
+    }
+
+    // [就活]
+    function addJob() {
+        const co = document.getElementById('job-co').value;
+        const url = document.getElementById('job-url').value;
+        const st = document.getElementById('job-st').value;
+        if(co) { appData.jobs.push({ id: genId(), co, url, st, memos: [] }); saveData(); }
+    }
+    function delJob(id) { if(confirm('削除しますか？')) { appData.jobs = appData.jobs.filter(j => j.id !== id); saveData(); } }
+    function updateJobStatus(id, st) { appData.jobs.find(j => j.id === id).st = st; saveData(); }
+    
+    function createJobMemo(jobId) {
+        const category = document.getElementById(`memo-cat-${jobId}`).value;
+        const date = document.getElementById(`memo-date-${jobId}`).value;
+        const id = genId();
+        appData.jobs.find(j => j.id === jobId).memos.unshift({ id, category, date, text: '' });
+        saveData();
+        openMemo('job_memo', jobId, id);
+    }
+    function delJobMemo(jobId, memoId) {
+        if(confirm('削除しますか？')) { appData.jobs.find(j => j.id === jobId).memos = appData.jobs.find(j => j.id === jobId).memos.filter(m => m.id !== memoId); saveData(); }
+    }
+
+    // [生活 & タスク]
+    function addManualTask() {
+        const text = document.getElementById('task-text').value;
+        const date = document.getElementById('task-date').value;
+        if(text && date) { appData.manualTasks.push({ id: genId(), text, date }); saveData(); }
+    }
+    function delTask(id) { appData.manualTasks = appData.manualTasks.filter(t => t.id !== id); saveData(); }
+
+    function addLifeEvent() {
+        const title = document.getElementById('life-title').value;
+        const date = document.getElementById('life-date').value;
+        const dateEnd = document.getElementById('life-date-end').value || date;
+        const loc = document.getElementById('life-loc').value;
+        
+        if(title && date) { 
+            if(new Date(dateEnd) < new Date(date)) { alert("終了日が開始日より前です"); return; }
+            appData.lifeEvents.push({ id: genId(), title, date, dateEnd, loc, text: '' }); 
+            saveData(); 
+        }
+    }
+    function delLifeEvent(id) { if(confirm('削除しますか？')) { appData.lifeEvents = appData.lifeEvents.filter(e => e.id !== id); saveData(); } }
+
+    // --- メモモーダル ---
+    let memoContext = { type: '', id1: '', id2: '' };
+    function openMemo(type, id1, id2) {
+        memoContext = { type, id1, id2 };
+        const modal = document.getElementById('memo-modal');
+        const titleInput = document.getElementById('modal-title-input');
+        const textarea = document.getElementById('modal-textarea');
+        
+        if(type === 'research_memo') {
+            const memo = appData.research.memos.find(m => m.id === id1);
+            titleInput.style.display = 'block';
+            titleInput.value = memo.title || '';
+            document.getElementById('modal-subtitle').innerText = "研究備忘録 (便利付箋)";
+            textarea.value = memo.text || '';
+        } else if(type === 'job_memo') {
+            const job = appData.jobs.find(j => j.id === id1);
+            const memo = job.memos.find(m => m.id === id2);
+            titleInput.style.display = 'none';
+            document.getElementById('modal-subtitle').innerHTML = `<strong style="color:#fff;font-size:16px;">${job.co}</strong> - ${memo.category} (${memo.date || '日付未定'})`;
+            textarea.value = memo.text || '';
+        } else if(type === 'life_memo') {
+            const life = appData.lifeEvents.find(e => e.id === id1);
+            titleInput.style.display = 'none';
+            const rangeText = life.dateEnd && life.dateEnd !== life.date ? `${life.date} ~ ${life.dateEnd}` : life.date;
+            document.getElementById('modal-subtitle').innerHTML = `<strong style="color:#fff;font-size:16px;">${life.title}</strong> - ${rangeText}`;
+            textarea.value = life.text || '';
+        }
+        modal.style.display = 'flex';
+        textarea.focus();
+    }
+    function saveMemo() {
+        const val = document.getElementById('modal-textarea').value;
+        const titleVal = document.getElementById('modal-title-input').value;
+        
+        if(memoContext.type === 'research_memo') {
+            const memo = appData.research.memos.find(m => m.id === memoContext.id1);
+            memo.title = titleVal; memo.text = val;
+        } else if(memoContext.type === 'job_memo') {
+            appData.jobs.find(j => j.id === memoContext.id1).memos.find(m => m.id === memoContext.id2).text = val;
+        } else if(memoContext.type === 'life_memo') {
+            appData.lifeEvents.find(e => e.id === memoContext.id1).text = val;
+        }
+        document.getElementById('memo-modal').style.display = 'none';
+        saveData();
+    }
+
+    // --- 時間割設定 ---
+    function openTimetableSettings() {
+        const body = document.getElementById('tt-settings-body');
+        let html = '';
+        for(let i=1; i<=12; i++) {
+            const t = appData.ttTimes[i];
+            html += `<div class="settings-row"><span style="width:40px;">${i}限:</span><input type="time" id="tt-s-${i}" value="${t.s}"> ~ <input type="time" id="tt-e-${i}" value="${t.e}"></div>`;
+        }
+        html += `<button class="primary-btn" style="width:100%; margin-top:10px;" onclick="saveTimetableSettings()">保存</button>`;
+        body.innerHTML = html;
+        document.getElementById('tt-settings-modal').style.display = 'flex';
+    }
+    function saveTimetableSettings() {
+        for(let i=1; i<=12; i++) {
+            appData.ttTimes[i] = { s: document.getElementById(`tt-s-${i}`).value, e: document.getElementById(`tt-e-${i}`).value };
+        }
+        document.getElementById('tt-settings-modal').style.display = 'none';
+        saveData();
+    }
+
+    // --- 統合レンダリング ---
+    const dayNames = ['月','火','水','木','金','土'];
+
+    function renderAll() {
+        const allTasks = getAllTasks();
+
+        // 1. ダッシュボード カレンダー
+        const today = new Date();
+        const year = today.getFullYear(), month = today.getMonth();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        const firstDay = new Date(year, month, 1).getDay();
+
+        let calHtml = `<div class="cal-header">${year}年 ${month+1}月</div><div class="cal-days"><span>日</span><span>月</span><span>火</span><span>水</span><span>木</span><span>金</span><span>土</span></div><div class="cal-grid">`;
+        for (let i = 0; i < firstDay; i++) calHtml += `<div class="cal-cell" style="background:#222"></div>`;
+        for (let i = 1; i <= daysInMonth; i++) {
+            const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(i).padStart(2,'0')}`;
+            const isToday = (i === today.getDate() && year === new Date().getFullYear() && month === new Date().getMonth()) ? 'today' : '';
+            const isSelected = (dateStr === appData.selectedDate) ? 'selected' : '';
+            const dayTasks = allTasks.filter(t => t.date === dateStr);
+            
+            // 重複排除 (同じ色のドットが多すぎないように)
+            const dotSet = new Set(dayTasks.map(t => t.color));
+            const dots = Array.from(dotSet).map(color => `<div class="cal-task-dot dot-${color}"></div>`).join('');
+            
+            calHtml += `<div class="cal-cell ${isToday} ${isSelected}" onclick="appData.selectedDate='${dateStr}'; saveData();">${i}<br>${dots}</div>`;
+        }
+        calHtml += `</div>`;
+        document.getElementById('calendar-container').innerHTML = calHtml;
+
+        const selTasks = allTasks.filter(t => t.date === appData.selectedDate);
+        document.getElementById('selected-date-label').innerText = appData.selectedDate;
+        document.getElementById('selected-date-tasks').innerHTML = selTasks.length 
+            ? selTasks.map(t => `<div class="item-card" style="border-left: 4px solid var(--accent-${t.color}); padding:10px; margin-bottom:5px;">${t.text}</div>`).join('')
+            : '<div style="color:var(--text-sub); font-size:13px;">予定はありません</div>';
+
+        const renderTaskItem = (t) => `<div class="item-card" style="display:flex; justify-content:space-between; align-items:center;">
+            <div><div style="font-weight:bold; font-size:14px;">${t.text}</div><div style="font-size:12px; color:var(--text-sub); margin-top:4px;">${t.date} ${getDaysDiff(t.date)}</div></div>
+            <div><span class="badge" style="border-color:var(--accent-${t.color});">${t.type}</span></div></div>`;
+        document.getElementById('dash-combined-tasks').innerHTML = allTasks.slice(0, 5).map(renderTaskItem).join('') || '<p style="color:var(--text-sub); font-size:13px;">タスクはありません</p>';
+        document.getElementById('full-task-list').innerHTML = allTasks.map(renderTaskItem).join('') || '<p style="color:var(--text-sub)">タスクはありません</p>';
+
+        // 2. 授業リスト
+        document.getElementById('course-list').innerHTML = appData.courses.map(c => `
+            <div class="item-card">
+                <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+                    <strong style="font-size:16px;">${c.name}</strong>
+                    <button class="ghost-btn" style="color:var(--danger-color)" onclick="delCourse('${c.id}')">削除</button>
+                </div>
+                <div style="font-size:12px; color:var(--text-sub); margin-bottom:10px;">
+                    ${(c.days || []).map(d => dayNames[d-1]).join('・')}曜日 ${c.periodStart}${c.periodStart!==c.periodEnd ? '~'+c.periodEnd : ''}限 | ${c.teacher||'説明なし'}
+                </div>
+                <div style="display:flex; gap:5px; margin-bottom:10px;">
+                    <input type="text" id="hw-text-${c.id}" placeholder="課題内容" style="flex:1; padding:6px; font-size:12px;">
+                    <input type="date" id="hw-date-${c.id}" style="padding:6px; font-size:12px;">
+                    <button class="primary-btn" style="padding:6px 10px; font-size:12px;" onclick="addAssignment('${c.id}')">追加</button>
+                </div>
+                <div style="background:#222; padding:10px; border-radius:6px;">
+                    ${c.assignments.length ? c.assignments.map(a => `<div style="display:flex; justify-content:space-between; margin-bottom:6px; font-size:13px;"><span>・${a.text} <span style="color:var(--text-sub)">(${a.date} ${getDaysDiff(a.date)})</span></span><button class="ghost-btn" style="padding:2px 6px;" onclick="delAssignment('${c.id}', '${a.id}')">✕</button></div>`).join('') : '<span style="font-size:12px; color:#777;">課題なし</span>'}
+                </div>
+            </div>`).join('');
+
+        // 3. 12節次 時間割グリッド (CSS Grid による描画)
+        let ttHtml = `<div class="tt-header">時間</div><div class="tt-header">月</div><div class="tt-header">火</div><div class="tt-header">水</div><div class="tt-header">木</div><div class="tt-header">金</div><div class="tt-header">土</div>`;
+        
+        // 背景セルを描画
+        for(let p=1; p<=12; p++) {
+            ttHtml += `<div class="tt-header" style="font-size:10px; flex-direction:column;">
+                <span>${p}限</span><span style="font-size:9px; color:#666">${appData.ttTimes[p].s}<br>${appData.ttTimes[p].e}</span>
+            </div>`;
+            for(let d=1; d<=6; d++) {
+                ttHtml += `<div class="tt-cell" style="grid-column:${d+1}; grid-row:${p+1};"></div>`;
+            }
+        }
+
+        // コースのブロックを配置
+        appData.courses.forEach(c => {
+            if(!c.days) return;
+            c.days.forEach(d => {
+                ttHtml += `<div class="tt-course" style="grid-column:${d+1}; grid-row:${c.periodStart+1} / ${c.periodEnd+2};">
+                    <div style="font-weight:bold; margin-bottom:3px;">${c.name}</div>
+                    <div style="font-size:10px;">${c.teacher}</div>
+                </div>`;
+            });
+        });
+
+        // 組会（定例ゼミ）のブロックを配置
+        if(appData.research.meetingDay && appData.research.meetingPeriodStart) {
+            const d = appData.research.meetingDay;
+            const s = appData.research.meetingPeriodStart;
+            const e = appData.research.meetingPeriodEnd || s;
+            if(s <= e) {
+                ttHtml += `<div class="tt-course" style="grid-column:${d+1}; grid-row:${s+1} / ${e+2}; background:rgba(76,175,80,0.15); border-left-color:var(--accent-green);">
+                    <div style="font-weight:bold; color:var(--accent-green);">[ゼミ・組会]</div>
+                </div>`;
+            }
+        }
+
+        document.getElementById('timetable-grid').innerHTML = ttHtml;
+
+        // 4. 研究・就活のレンダリング (変更少)
+        document.getElementById('research-meeting-day').value = appData.research.meetingDay || 3;
+        document.getElementById('research-meeting-start').value = appData.research.meetingPeriodStart || 1;
+        document.getElementById('research-meeting-end').value = appData.research.meetingPeriodEnd || 2;
+        
+        const doneMs = appData.research.milestones.filter(m => m.done).length;
+        const totalMs = appData.research.milestones.length;
+        const progress = totalMs === 0 ? 0 : Math.round((doneMs/totalMs)*100);
+        document.getElementById('research-progress-text').innerText = progress + '%';
+        document.getElementById('research-progress-bar').style.width = progress + '%';
+
+        document.getElementById('research-milestone-list').innerHTML = appData.research.milestones.map(m => `
+            <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px; padding:10px; background:var(--card-bg); border-radius:6px; border:1px solid var(--border-color)">
+                <input type="checkbox" ${m.done?'checked':''} onchange="toggleMilestone('${m.id}')">
+                <span style="flex:1; text-decoration:${m.done?'line-through':'none'}; color:${m.done?'var(--text-sub)':'#fff'}">${m.text}</span>
+                <span style="font-size:12px; color:var(--text-sub)">${m.date}</span>
+                <button class="ghost-btn" style="color:var(--danger-color)" onclick="delMilestone('${m.id}')">削除</button>
+            </div>`).join('');
+
+        document.getElementById('research-memo-grid').innerHTML = appData.research.memos.map(m => `
+            <div class="sticky-note" onclick="openMemo('research_memo', '${m.id}')">
+                <button class="sticky-del" onclick="event.stopPropagation(); delResMemo('${m.id}')">✕</button>
+                <div class="sticky-title">${m.title || '無題のノート'}</div>
+                <div class="sticky-content">${m.text || 'クリックして編集...'}</div>
+            </div>`).join('');
+
+        document.getElementById('job-list').innerHTML = appData.jobs.map(j => `
+            <div class="item-card">
+                <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+                    <strong style="font-size:16px;">${j.co}</strong><button class="ghost-btn" style="color:var(--danger-color)" onclick="delJob('${j.id}')">削除</button>
+                </div>
+                <div style="margin-bottom:15px;">
+                    <select onchange="updateJobStatus('${j.id}', this.value)" style="padding:4px; font-size:12px;">
+                        ${['プレエントリー','ES提出','筆記試験','一次面接','二次面接','最終面接','内定','不採用'].map(opt => `<option value="${opt}" ${j.st===opt?'selected':''}>${opt}</option>`).join('')}
+                    </select>
+                    <a href="${j.url}" target="_blank" style="font-size:12px; color:var(--accent-blue); margin-left:10px; text-decoration:none;">マイページへ ↗</a>
+                </div>
+                <div style="display:flex; gap:5px; margin-bottom:10px;">
+                    <select id="memo-cat-${j.id}" style="padding:6px; font-size:12px;">
+                        <option value="企業研究">企業研究</option><option value="面接準備">面接準備</option><option value="ES下書き">ES下書き</option><option value="その他">その他</option>
+                    </select>
+                    <input type="date" id="memo-date-${j.id}" style="padding:6px; font-size:12px;">
+                    <button class="primary-btn" style="padding:6px 10px; font-size:12px;" onclick="createJobMemo('${j.id}')">メモ追加</button>
+                </div>
+                <div class="sticky-grid" style="grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));">
+                    ${j.memos.map(m => `
+                    <div class="sticky-note" style="height:100px; padding:8px;" onclick="openMemo('job_memo', '${j.id}', '${m.id}')">
+                        <button class="sticky-del" onclick="event.stopPropagation(); delJobMemo('${j.id}', '${m.id}')">✕</button>
+                        <div class="sticky-title" style="font-size:11px;">${m.category} (${m.date})</div>
+                        <div class="sticky-content" style="font-size:11px;">${m.text || '編集...'}</div>
+                    </div>`).join('')}
+                </div>
+            </div>`).join('');
+
+        // 5. 生活 (期間の表示を追加)
+        document.getElementById('life-list').innerHTML = appData.lifeEvents.map(e => `
+            <div class="item-card" onclick="openMemo('life_memo', '${e.id}')" style="cursor:pointer; transition: 0.2s;">
+                <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+                    <strong style="color:var(--accent-pink);">${e.title}</strong>
+                    <button class="sticky-del" onclick="event.stopPropagation(); delLifeEvent('${e.id}')" style="position:relative; top:0; right:0;">✕</button>
+                </div>
+                <div style="font-size:12px; color:var(--text-sub); margin-bottom:8px;">
+                    ${e.date} ${e.dateEnd && e.dateEnd !== e.date ? '~ ' + e.dateEnd : ''} | <span style="color:#bbb;">${e.loc || '場所未定'}</span>
+                </div>
+                <div style="font-size:12px; color:#ccc; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; background:#222; padding:8px; border-radius:4px;">
+                    ${e.text ? e.text.replace(/\n/g, ' ') : 'クリックしてメモを追加...'}
+                </div>
+            </div>`).join('');
+    }
+
+    // 初期化
+    renderAll();
+</script>
+</body>
+</html>
